@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>학교 통합 시간 관리 — 우리 학교에 설치하기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--ink:#1f2a37;--muted:#6b7280;--line:#d6dae0;--paper:#fafaf8;--blue:#3d5fd6;--ok:#1d8a4a;--warn:#b45309}
+*{box-sizing:border-box}body{margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:var(--ink);background:var(--paper);line-height:1.7}
+.top{background:#fff;border-bottom:1px solid var(--line);padding:12px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+.top h1{font-size:18px;margin:0}.top .hint{margin-left:auto}
+.layout{display:flex;gap:24px;max-width:1180px;margin:0 auto;padding:22px 20px 60px}
+.side{width:280px;flex:none;position:sticky;top:70px;align-self:flex-start}
+.side ol{list-style:none;padding:0;margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.side li{padding:9px 12px;border-bottom:1px solid #eef0f3;cursor:pointer;display:flex;gap:8px;align-items:center;font-size:14px}
+.side li:last-child{border-bottom:0}.side li.cur{background:#e8f0fe;font-weight:700}.side li .n{width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none}
+.side li.done .n{background:var(--ok);color:#fff}.side li.cur .n{background:var(--blue);color:#fff}
+.main{flex:1;min-width:0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:14px}
+h2{font-size:21px;margin:0 0 6px}h3{font-size:15px;margin:16px 0 6px}
+.hint{color:var(--muted);font-size:13.5px}
+.task{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin:8px 0;background:#fff}
+.task input[type=checkbox]{margin-top:5px;width:18px;height:18px;flex:none}.task.done{background:#f0faf4;border-color:#bfe3cc}
+.task b{display:block}.task .d{font-size:14px}
+code{background:#f3f4f6;padding:1px 6px;border-radius:5px;font-family:Consolas,monospace;font-size:13px}
+pre{background:#f3f4f6;padding:12px 14px;border-radius:8px;overflow:auto;font-size:13px;margin:8px 0;position:relative}
+.btn{display:inline-block;padding:8px 16px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-size:14px;cursor:pointer;text-decoration:none}
+.btn.sec{background:#fff;color:var(--ink)}.btn.sm{padding:4px 10px;font-size:13px}.btn:disabled{opacity:.45;cursor:not-allowed}
+.nav{display:flex;justify-content:space-between;margin-top:14px}
+input[type=text],input[type=url],textarea{width:100%;padding:8px 10px;border:1px solid #9aa3ad;border-radius:6px;font-size:14px;font-family:inherit}
+textarea{min-height:150px;font-family:Consolas,monospace;font-size:13px}
+label.f{display:block;font-weight:700;margin:10px 0 3px}
+.ok{color:var(--ok);font-weight:700}.bad{color:#d93636;font-weight:700}.warnbox{background:#fff6d6;border-left:4px solid #e0b000;padding:8px 12px;border-radius:6px;margin:8px 0;font-size:14px}
+.shot{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#f8f9fb;font-size:13.5px;margin:6px 0}
+.shot .path{font-weight:700;color:var(--blue)}
+@media (max-width:860px){.layout{flex-direction:column}.side{width:100%;position:static}}
+@media print{.side,.nav,.top .hint{display:none}.card{break-inside:avoid}}
+</style></head><body>
+<div class="top"><h1>학교 통합 시간 관리 — 우리 학교에 설치하기</h1><span class="hint">순서대로 체크하면서 따라오세요. 진행 상황은 이 브라우저에 저장됩니다.</span></div>
+<div class="layout">
+  <div class="side"><ol id="steps"></ol><p class="hint" style="margin-top:10px"><a href="#" id="resetAll">진행 상황 지우기</a> · <a href="../manual.html" target="_blank">사용설명서</a> · <a href="../" target="_blank">체험 사이트</a></p></div>
+  <div class="main" id="main"></div>
+</div>
+<script>
+const STEPS = [
+{ id:'intro', title:'시작하기 전에', render: () => `
+  <h2>시작하기 전에</h2>
+  <p>이 프로그램은 <b>파일 몇 개</b>와 <b>구글의 무료 데이터베이스(Firebase)</b>만으로 돌아갑니다. 학교 서버나 비용이 필요 없고, 한 번 설치하면 선생님들은 주소만 열어서 씁니다.</p>
+  <h3>준비물</h3>
+  ${task('p1','구글 계정 (학교 업무용 계정을 권합니다)','담당자가 바뀌어도 이어 쓸 수 있게 개인 계정보다 학교 공용 계정이 좋습니다. 없으면 개인 계정도 됩니다.')}
+  ${task('p2','GitHub 계정 (무료)','파일을 올려 두는 곳입니다. github.com 에서 가입합니다.')}
+  ${task('p3','시간 30분 정도','1단계 Firebase(15분) → 2단계 파일 만들기(3분) → 3단계 올리기(10분) → 4단계 처음 설정.')}
+  <h3>무엇이 만들어지나</h3>
+  <ul class="hint" style="font-size:14px"><li>통합 시간표: 담임시간표, 전담시간표, 외부강의, 특별실, 보결, 개별학생 교육지원, 현황</li><li>월간운영계획(학교 일정표) — 쓰지 않으면 끌 수 있음</li><li>주소 예: <code>https://우리학교이름.vercel.app/timetable.html</code></li></ul>
+  <p class="hint">데이터는 전부 우리 학교가 만든 Firebase 프로젝트에만 저장됩니다. 프로그램을 만든 쪽에서는 볼 수 없습니다.</p>` },
+
+{ id:'fb1', title:'1. Firebase 프로젝트 만들기', render: () => `
+  <h2>1. Firebase 프로젝트 만들기</h2>
+  <p>데이터가 저장될 곳을 만듭니다. 새 탭에서 <a class="btn sm" href="https://console.firebase.google.com" target="_blank">Firebase 콘솔 열기 ↗</a> 를 누르고 아래를 따라 하세요.</p>
+  ${task('f1','구글 계정으로 로그인','준비한 학교 계정으로 로그인합니다.')}
+  ${task('f2','[프로젝트 만들기] (또는 프로젝트 추가) 누르기','이름은 알아보기 쉽게. 예: <code>school-timetable</code> 또는 학교 영문 약자.')}
+  ${task('f3','Google 애널리틱스는 "사용 안 함"으로 두고 만들기','켜도 상관없지만 필요 없습니다. 만들어지는 데 20~30초 걸립니다.')}
+  <div class="shot"><span class="path">화면 모양</span> — 프로젝트 이름 입력 → 계속 → 애널리틱스 스위치 끔 → 프로젝트 만들기 → "새 프로젝트가 준비되었습니다" → 계속</div>` },
+
+{ id:'fb2', title:'2. 데이터베이스 켜기', render: () => `
+  <h2>2. 데이터베이스(Firestore) 켜기</h2>
+  ${task('d1','왼쪽 메뉴 → 빌드 → Firestore Database','메뉴가 접혀 있으면 "빌드"를 눌러 펼칩니다.')}
+  ${task('d2','[데이터베이스 만들기] → 위치는 asia-northeast3 (Seoul) 선택','위치는 나중에 바꿀 수 없으니 서울을 고릅니다. 데이터베이스 ID는 (default) 그대로.')}
+  ${task('d3','"프로덕션 모드로 시작" 선택 → 만들기','테스트 모드는 30일 뒤 막히므로 프로덕션 모드로 하고 다음 규칙을 넣습니다.')}
+  ${task('d4','위쪽 [규칙] 탭 → 내용 전부 지우고 아래 규칙 붙여넣기 → [게시]','규칙은 "이 프로그램이 쓰는 공간만, 접속한 사용자에게 읽기와 쓰기를 허용"한다는 뜻입니다.')}
+  <pre id="rules">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/public/data/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</pre><button class="btn sec sm" onclick="copyText('rules', this)">규칙 복사</button>` },
+
+{ id:'fb3', title:'3. 로그인 방식 켜기', render: () => `
+  <h2>3. 로그인 방식 켜기 (Authentication)</h2>
+  ${task('a1','왼쪽 메뉴 → 빌드 → Authentication → [시작하기]','')}
+  ${task('a2','[로그인 방법] 탭 → 익명 → 사용 설정 → 저장','선생님들이 로그인 없이 쓰는 방식의 바탕입니다. 꼭 켜야 합니다.')}
+  ${task('a3','(선택) Google → 사용 설정 → 프로젝트 지원 이메일 선택 → 저장','학교 구글 계정으로 로그인해서 어느 컴퓨터에서나 내 역할로 쓰고 싶을 때만 필요합니다. 나중에 켜도 됩니다.')}
+  <p class="hint">[설정] 탭의 "승인된 도메인"에 나중에 사이트 주소를 추가합니다(8단계). 지금은 넘어가도 됩니다.</p>` },
+
+{ id:'fb4', title:'4. 연결 정보 복사', render: () => `
+  <h2>4. 연결 정보(firebaseConfig) 복사</h2>
+  ${task('c1','왼쪽 위 톱니바퀴(⚙) → 프로젝트 설정','')}
+  ${task('c2','아래로 내려 "내 앱" → 웹 아이콘 &lt;/&gt; 누르기','아직 앱이 없으면 "앱을 추가하여 시작하기"에 웹 아이콘이 있습니다.')}
+  ${task('c3','앱 닉네임 아무거나(예: 시간표) → Firebase 호스팅은 체크 안 함 → [앱 등록]','')}
+  ${task('c4','화면에 나오는 const firebaseConfig = { ... } 부분을 통째로 복사해서 아래 칸에 붙여넣기','나중에 다시 보려면 프로젝트 설정 → 내 앱 → SDK 설정 및 구성 → "구성"을 선택하면 됩니다.')}
+  <textarea id="fbcfg" placeholder='const firebaseConfig = {
+  apiKey: "AIza...",
+  authDomain: "xxxx.firebaseapp.com",
+  projectId: "xxxx",
+  storageBucket: "xxxx.firebasestorage.app",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef"
+};'></textarea>
+  <div id="fbState" class="hint" style="margin-top:6px">붙여 넣으면 자동으로 확인합니다.</div>` },
+
+{ id:'school', title:'5. 학교 정보 입력', render: () => `
+  <h2>5. 학교 정보 입력</h2>
+  <label class="f">학교 이름 (짧게, 화면 표시용)</label><input type="text" id="sName" placeholder="예: 바른초">
+  <label class="f">학교 정식 이름 (인쇄물용)</label><input type="text" id="sFull" placeholder="예: 바른초등학교">
+  <label class="f">학교 구글 워크스페이스 도메인 <span class="hint">(없거나 모르면 비워 두세요)</span></label><input type="text" id="sDomain" placeholder="예: goedu.kr">
+  <label class="f"><input type="checkbox" id="sCal" checked> 월간운영계획(학교 일정표)도 함께 사용</label>
+  <p class="hint">해제하면 통합 시간표에서 월간운영계획 탭이 숨겨지고 외부강의가 일정표에 들어가지 않습니다. 나중에 config.js에서 바꿀 수 있습니다.</p>` },
+
+{ id:'download', title:'6. 설치 파일 내려받기', render: () => `
+  <h2>6. 설치 파일 내려받기</h2>
+  <p>4단계와 5단계 내용으로 <b>우리 학교 전용 설정이 들어간 파일 묶음</b>을 만듭니다.</p>
+  <div id="dlCheck"></div>
+  <p><button class="btn" id="dlBtn" onclick="buildZip()">설치 파일 zip 내려받기</button> <span id="dlMsg" class="hint"></span></p>
+  <h3>묶음 안에 들어 있는 것</h3>
+  <table style="border-collapse:collapse;font-size:14px"><tr><td style="padding:3px 10px"><code>timetable.html</code></td><td>통합 시간표</td></tr><tr><td style="padding:3px 10px"><code>index.html</code></td><td>월간운영계획</td></tr><tr><td style="padding:3px 10px"><code>config.js</code></td><td>우리 학교 설정 (방금 입력한 내용)</td></tr><tr><td style="padding:3px 10px"><code>manual.html</code></td><td>선생님용 사용설명서</td></tr><tr><td style="padding:3px 10px"><code>README.md</code></td><td>간단 설명</td></tr></table>
+  <p class="hint">압축을 풀어 두세요. 다음 단계에서 이 파일들을 올립니다. config.js에는 Firebase 연결 정보가 들어 있는데, 이 정보는 공개되어도 규칙(2단계)에 따라 접근이 제한되므로 괜찮습니다.</p>` },
+
+{ id:'gh', title:'7. GitHub에 올리기', render: () => `
+  <h2>7. GitHub에 파일 올리기</h2>
+  <p>파일을 인터넷에서 열 수 있게 두는 곳입니다. <a class="btn sm" href="https://github.com/new" target="_blank">새 저장소 만들기 ↗</a> (로그인 필요)</p>
+  ${task('g1','Repository name에 이름 입력 (예: school-timetable) → Public 선택 → [Create repository]','README, .gitignore, license는 모두 비워 둡니다.')}
+  ${task('g2','만들어진 빈 저장소 화면에서 "uploading an existing file" 링크 누르기','또는 Add file → Upload files.')}
+  ${task('g3','압축을 푼 파일 5개를 모두 끌어다 놓기 → 아래 [Commit changes]','파일 5개가 목록에 보이는지 확인하고 커밋합니다. 폴더째가 아니라 파일들을 올립니다.')}
+  <p class="hint">GitHub 자체 설정(Pages 등)은 건드리지 않아도 됩니다. 다음 단계의 Vercel이 이 저장소를 읽어 사이트로 만듭니다.</p>` },
+
+{ id:'vercel', title:'8. 사이트 만들기 (Vercel)', render: () => `
+  <h2>8. 사이트 만들기 (Vercel)</h2>
+  <p><a class="btn sm" href="https://vercel.com/signup" target="_blank">Vercel 가입/로그인 ↗</a> — "Continue with GitHub"로 가입하면 연결이 바로 됩니다.</p>
+  ${task('v1','Vercel 대시보드 → [Add New...] → Project','')}
+  ${task('v2','Import Git Repository 목록에서 방금 만든 저장소 → [Import]','목록에 안 보이면 "Adjust GitHub App Permissions"에서 저장소 접근을 허용합니다.')}
+  ${task('v3','Project Name 확인 (이것이 주소가 됩니다) → 다른 설정은 그대로 → [Deploy]','Framework Preset은 Other로 두면 됩니다. 1분 정도 뒤 "Congratulations"가 나옵니다.')}
+  ${task('v4','나온 주소(xxxx.vercel.app)를 아래에 적어 두기','')}
+  <label class="f">우리 사이트 주소</label><input type="url" id="siteUrl" placeholder="https://xxxx.vercel.app">
+  <div id="siteLinks" class="hint" style="margin-top:6px"></div>
+  ${task('v5','Firebase 콘솔 → Authentication → 설정 → 승인된 도메인 → [도메인 추가] → xxxx.vercel.app 추가','구글 로그인을 쓸 때 필요합니다. 익명만 쓰면 생략해도 되지만 넣어 두면 안전합니다.')}` },
+
+{ id:'setup', title:'9. 처음 설정 (관리자)', render: () => `
+  <h2>9. 처음 설정 (관리자)</h2>
+  <p>사이트가 열렸으면 설정을 넣습니다. <span id="openLink"></span></p>
+  ${task('s1','오른쪽 위 [관리자] → 처음 넣는 암호가 관리자 암호로 저장됨','잊지 않게 적어 두세요. 관리자는 여러 명이 같은 암호를 쓰거나, 구글 계정에 관리자 역할을 줄 수 있습니다.')}
+  ${task('s2','학년도 설정 → 학년도 · 학급: 학년도, 학년별 학급 수, 특별실 이름, 보결 추가 인원, 1·2학기 기간 → [주차 만들기] → 저장','')}
+  ${task('s3','학년도 설정 → 시정표 · 점심: 학년군별 교시 시간과 점심시간 → 저장','학년마다 점심 시간이 다르면 학년군을 나눕니다. 특별실 겹침과 보결 판정에 쓰입니다.')}
+  ${task('s4','학년도 설정 → 전담 교사: 전담 이름, 과목, 담당 학급, 시수, 특별실 → 저장','전담 선생님이 전담 탭에서 직접 등록하게 해도 됩니다.')}
+  ${task('s5','학년도 설정 → 학년도 · 학급 → 개별지도 비밀번호 정하기','개별학생 교육지원 탭은 학생 정보가 있어 이 비밀번호로만 열립니다.')}
+  ${task('s6','(월간운영계획을 쓰면) …/index.html 열어 부서와 휴업일 설정','')}` },
+
+{ id:'teachers', title:'10. 선생님들께 안내', render: () => `
+  <h2>10. 선생님들께 안내</h2>
+  ${task('t1','접속 주소와 사용설명서 주소 공지','사용설명서: <span id="manualLink">…/manual.html</span>')}
+  ${task('t2','담임: 스쿨마스터 연간시간표를 한글에서 열어 전담 칸에 배경색을 칠하고 hwpx로 저장해서 올리기','담임 탭의 [올리는 방법 ?]에 그림 없는 4단계 안내가 있습니다. hwp 그대로는 올라가지 않습니다.')}
+  ${task('t3','전담: 전담 탭 → [내 담당 설정] 또는 [+ 새 전담 등록]','')}
+  ${task('t4','각자 자기 컴퓨터에서 [이 컴퓨터 역할 정하기]','교실 컴퓨터처럼 한 사람이 쓰는 컴퓨터에 역할을 저장해 두면 다음부터 바로 내 화면으로 열립니다.')}
+  <h3>자주 묻는 것</h3>
+  <table style="border-collapse:collapse;width:100%;font-size:14px">
+  <tr><td style="padding:5px 8px;border-bottom:1px solid #eee;width:34%"><b>"설정 파일이 아직 없습니다"가 떠요</b></td><td style="padding:5px 8px;border-bottom:1px solid #eee">config.js가 같은 폴더에 없거나 예시 값입니다. 6단계에서 받은 config.js를 올렸는지 확인하세요.</td></tr>
+  <tr><td style="padding:5px 8px;border-bottom:1px solid #eee"><b>저장이 안 돼요</b></td><td style="padding:5px 8px;border-bottom:1px solid #eee">2단계 규칙과 3단계 익명 로그인을 확인하세요.</td></tr>
+  <tr><td style="padding:5px 8px;border-bottom:1px solid #eee"><b>구글 로그인 "unauthorized domain"</b></td><td style="padding:5px 8px;border-bottom:1px solid #eee">8단계 마지막, 승인된 도메인에 주소를 넣지 않은 경우입니다.</td></tr>
+  <tr><td style="padding:5px 8px;border-bottom:1px solid #eee"><b>프로그램이 새 버전으로 바뀌면?</b></td><td style="padding:5px 8px;border-bottom:1px solid #eee">이 사이트에서 새 timetable.html, index.html만 받아 GitHub에 같은 이름으로 다시 올리면 됩니다. config.js와 데이터는 그대로입니다. <a href="files/timetable.html" download>timetable.html</a> · <a href="files/index.html" download>index.html</a></td></tr>
+  <tr><td style="padding:5px 8px"><b>비용이 드나요?</b></td><td style="padding:5px 8px">Firebase, GitHub, Vercel 모두 무료 범위(하루 읽기 5만 건, 쓰기 2만 건)로 한 학교는 충분합니다.</td></tr></table>
+  <p class="hint" style="margin-top:14px">made by 너펑이 (화성바른초). 학교 내부 업무용으로 자유롭게 쓰실 수 있습니다. 다른 곳에 다시 배포하거나 판매하지 말아 주세요.</p>` },
+];
+
+// ---------- 상태 저장 ----------
+const S = JSON.parse(localStorage.getItem('install_state')||'{}');
+const save = () => localStorage.setItem('install_state', JSON.stringify(S));
+let cur = S.cur || 0;
+function task(id, title, desc){ const on = !!S['t_'+id]; return `<label class="task ${on?'done':''}"><input type="checkbox" ${on?'checked':''} onchange="toggle('${id}',this)"><span><b>${title}</b>${desc?`<span class="d hint">${desc}</span>`:''}</span></label>`; }
+function toggle(id, el){ S['t_'+id] = el.checked; save(); el.closest('.task').classList.toggle('done', el.checked); renderSide(); }
+function stepDone(i){ const html = STEPS[i].render(); const ids = [...html.matchAll(/toggle\('([^']+)'/g)].map(m=>m[1]); if (!ids.length) return false; return ids.every(id=>S['t_'+id]); }
+function renderSide(){ const ol = document.getElementById('steps'); ol.innerHTML = STEPS.map((s,i)=>`<li class="${i===cur?'cur':''} ${stepDone(i)?'done':''}" onclick="go(${i})"><span class="n">${stepDone(i)?'✓':i}</span>${s.title}</li>`).join(''); }
+function go(i){ cur = Math.max(0, Math.min(STEPS.length-1, i)); S.cur = cur; save(); render(); window.scrollTo(0,0); }
+function render(){ const m = document.getElementById('main'); m.innerHTML = `<div class="card">${STEPS[cur].render()}</div><div class="nav"><button class="btn sec" ${cur===0?'disabled':''} onclick="go(${cur-1})">← 이전</button><button class="btn" ${cur===STEPS.length-1?'disabled':''} onclick="go(${cur+1})">다음 →</button></div>`; renderSide(); bind(); }
+function copyText(id, btn){ navigator.clipboard.writeText(document.getElementById(id).textContent).then(()=>{ btn.textContent='복사됨'; setTimeout(()=>btn.textContent='규칙 복사',1500); }); }
+
+// ---------- 입력 칸 바인딩 ----------
+const KEYS = ['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'];
+function parseFb(t){ const o={}; for (const k of KEYS){ const m=(t||'').match(new RegExp(k+'\\s*[:=]\\s*["\']([^"\']+)["\']')); if(m) o[k]=m[1]; } return o; }
+function fbOk(){ const o=parseFb(S.fbcfg); return !!(o.apiKey && o.projectId && o.appId); }
+function bind(){
+  const fb = document.getElementById('fbcfg'); if (fb) { fb.value = S.fbcfg||''; const upd=()=>{ S.fbcfg=fb.value; save(); const o=parseFb(fb.value); const el=document.getElementById('fbState'); if(!fb.value.trim()){ el.textContent='붙여 넣으면 자동으로 확인합니다.'; el.className='hint'; return; } const miss=['apiKey','projectId','appId','authDomain'].filter(k=>!o[k]); if(miss.length){ el.textContent='아직 못 찾은 항목: '+miss.join(', ')+' — 복사 범위를 확인해 주세요.'; el.className='bad'; } else { el.textContent='확인됨: 프로젝트 '+o.projectId; el.className='ok'; } }; fb.addEventListener('input', upd); upd(); }
+  for (const [id,key] of [['sName','sName'],['sFull','sFull'],['sDomain','sDomain'],['siteUrl','siteUrl']]) { const el=document.getElementById(id); if (el) { el.value=S[key]||''; el.addEventListener('input',()=>{ S[key]=el.value; save(); if (id==='siteUrl') siteLinks(); }); } }
+  const sc=document.getElementById('sCal'); if (sc) { sc.checked = S.sCal!==false; sc.addEventListener('change',()=>{ S.sCal=sc.checked; save(); }); }
+  const dc=document.getElementById('dlCheck'); if (dc) { const okFb=fbOk(), okName=!!(S.sName||'').trim(); dc.innerHTML = `<div class="${okFb?'ok':'bad'}">${okFb?'✓ Firebase 연결 정보 확인됨 ('+parseFb(S.fbcfg).projectId+')':'✗ 4단계 Firebase 연결 정보가 아직 없습니다'}</div><div class="${okName?'ok':'bad'}">${okName?'✓ 학교 이름: '+S.sName:'✗ 5단계 학교 이름이 비어 있습니다'}</div>`; document.getElementById('dlBtn').disabled = !(okFb&&okName); }
+  siteLinks();
+  const ol=document.getElementById('openLink'); if (ol && S.siteUrl) ol.innerHTML = `<a class="btn sm" href="${S.siteUrl.replace(/\/$/,'')}/timetable.html" target="_blank">우리 사이트 열기 ↗</a>`;
+  const ml=document.getElementById('manualLink'); if (ml && S.siteUrl) ml.textContent = S.siteUrl.replace(/\/$/,'')+'/manual.html';
+}
+function siteLinks(){ const el=document.getElementById('siteLinks'); if(!el) return; const u=(S.siteUrl||'').trim().replace(/\/$/,''); el.innerHTML = u ? `통합 시간표: <a href="${u}/timetable.html" target="_blank">${u}/timetable.html</a> · 월간운영계획: <a href="${u}/index.html" target="_blank">${u}/index.html</a>` : ''; }
+
+// ---------- zip 만들기 ----------
+function makeConfig(){ const o=parseFb(S.fbcfg); const q=v=>JSON.stringify(v||''); const nm=(S.sName||'').trim();
+  return `// 학교별 설정 파일 — 설치 안내 사이트에서 만들었습니다 (${new Date().toLocaleString('ko-KR')})
+window.SCHOOL_CONFIG = {
+  schoolName: ${q(nm)},
+  schoolFullName: ${q((S.sFull||'').trim()||nm)},
+  domain: ${q((S.sDomain||'').trim())},
+  showCalendarTab: ${S.sCal!==false},
+  logoUrl: "",
+  firebase: {
+    apiKey: ${q(o.apiKey)},
+    authDomain: ${q(o.authDomain)},
+    projectId: ${q(o.projectId)},
+    storageBucket: ${q(o.storageBucket)},
+    messagingSenderId: ${q(o.messagingSenderId)},
+    appId: ${q(o.appId)}
+  },
+  timetableAppId: "school-timetable",
+  calendarAppId: "school-calendar"
+};
+`; }
+async function buildZip(){ const msg=document.getElementById('dlMsg'); msg.textContent='파일을 모으는 중…';
+  try { const zip=new JSZip(); for (const f of ['timetable.html','index.html','manual.html','README.md']) { const r=await fetch('files/'+f); if(!r.ok) throw new Error(f+' 을(를) 가져오지 못했습니다'); zip.file(f, await r.text()); }
+    zip.file('config.js', makeConfig());
+    const blob=await zip.generateAsync({type:'blob'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`학교통합시간관리_${(S.sName||'학교').trim()}.zip`; a.click(); URL.revokeObjectURL(a.href);
+    msg.textContent='내려받았습니다. 압축을 풀고 7단계로 가세요.'; S['t_dl']=true; save(); } catch(e){ msg.textContent='오류: '+e.message; }
+}
+document.getElementById('resetAll').onclick=e=>{ e.preventDefault(); if(confirm('체크와 입력 내용을 모두 지울까요?')){ localStorage.removeItem('install_state'); location.reload(); } };
+render();
+</script>
+</body></html>
